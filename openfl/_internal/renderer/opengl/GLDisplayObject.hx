@@ -55,4 +55,25 @@ class GLDisplayObject {
 	}
 	
 	
+	public static inline function renderMask (displayObject:DisplayObject, renderSession:RenderSession):Void {
+		
+		if (displayObject.opaqueBackground == null && displayObject.__graphics == null) return;
+		
+		if (displayObject.opaqueBackground != null && !displayObject.__cacheBitmapRender && displayObject.width > 0 && displayObject.height > 0) {
+			
+			var gl = renderSession.gl;
+			
+			// TODO
+			
+		}
+		
+		if (displayObject.__graphics != null) {
+			
+			GLShape.renderMask (displayObject, renderSession);
+			
+		}
+		
+	}
+	
+	
 }

@@ -4,9 +4,11 @@ package openfl._internal.renderer.opengl;
 import lime.graphics.GLRenderContext;
 import openfl._internal.renderer.AbstractMaskManager;
 import openfl.display.DisplayObject;
+import openfl.display.Shader;
 import openfl.display.Stage;
 import openfl.geom.Matrix;
 import openfl.geom.Rectangle;
+import openfl.utils.ByteArray;
 
 #if !openfl_debug
 @:fileXml('tags="haxe,release"')
@@ -24,8 +26,11 @@ import openfl.geom.Rectangle;
 class GLMaskManager extends AbstractMaskManager {
 	
 	
+	@:allow(openfl._internal.renderer.opengl) private static var maskShader = new GLMaskShader ();
+	
 	private var clipRects:Array<Rectangle>;
 	private var gl:GLRenderContext;
+	private var maskObjects:Array<DisplayObject>;
 	private var numClipRects:Int;
 	private var tempRect:Rectangle;
 	
@@ -37,6 +42,7 @@ class GLMaskManager extends AbstractMaskManager {
 		this.gl = renderSession.gl;
 		
 		clipRects = new Array ();
+		maskObjects = new Array ();
 		numClipRects = 0;
 		tempRect = new Rectangle ();
 		
@@ -45,9 +51,24 @@ class GLMaskManager extends AbstractMaskManager {
 	
 	public override function pushMask (mask:DisplayObject):Void {
 		
-		// TODO: Handle true mask shape, as well as alpha test
+		if (maskObjects.length == 0) {
+			
+			gl.enable (gl.STENCIL_TEST);
+			
+		}
 		
-		pushRect (mask.getBounds (mask), mask.__getRenderTransform ());
+		maskObjects.push (mask);
+		
+		//gl.colorMask (true, true, true, true);
+		gl.colorMask (true, true, false, false);
+		gl.stencilFunc (gl.ALWAYS, 1, 0xFF);
+		gl.stencilOp (gl.KEEP, gl.KEEP, gl.REPLACE);
+		
+		mask.__renderGLMask (renderSession);
+		
+		gl.colorMask (true, true, true, true);
+		gl.stencilFunc (gl.NOTEQUAL, 0, 0xFF);
+		gl.stencilOp (gl.ZERO, gl.ZERO, gl.ZERO);
 		
 	}
 	
@@ -111,7 +132,32 @@ class GLMaskManager extends AbstractMaskManager {
 	
 	public override function popMask ():Void {
 		
-		popRect ();
+		maskObjects.pop ();
+		
+		if (maskObjects.length == 0) {
+			
+			gl.disable (gl.STENCIL_TEST);
+			
+		} else {
+			
+			gl.clear (gl.STENCIL_BUFFER_BIT);
+			
+			//gl.colorMask (true, true, true, true);
+			gl.colorMask (true, true, false, false);
+			gl.stencilFunc (gl.ALWAYS, 1, 0xFF);
+			gl.stencilOp (gl.KEEP, gl.KEEP, gl.REPLACE);
+			
+			for (mask in maskObjects) {
+				
+				mask.__renderGLMask (renderSession);
+				
+			}
+			
+			gl.colorMask (true, true, true, true);
+			gl.stencilFunc (gl.NOTEQUAL, 0, 0xFF);
+			gl.stencilOp (gl.ZERO, gl.ZERO, gl.ZERO);
+			
+		}
 		
 	}
 	
@@ -180,6 +226,58 @@ class GLMaskManager extends AbstractMaskManager {
 			gl.disable (gl.SCISSOR_TEST);
 			
 		}
+		
+	}
+	
+	
+}
+
+
+class GLMaskShader extends Shader {
+	
+	
+	@:glFragmentSource(
+		
+		"varying float vAlpha;
+		varying mat4 vColorMultipliers;
+		varying vec4 vColorOffsets;
+		varying vec2 vTexCoord;
+		
+		uniform bool uColorTransform;
+		uniform sampler2D uImage0;
+		
+		void main(void) {
+			
+			vec4 color = texture2D (uImage0, vTexCoord);
+			
+			if (color.a == 0.0) {
+				
+				discard;
+				
+			// } else if (uColorTransform) {
+				
+			// 	color = vec4 (color.rgb / color.a, color.a);
+			// 	color = vColorOffsets + (color * vColorMultipliers);
+				
+			// 	if (color.a > 0.0) {
+			// 		gl_FragColor = vec4 (color.rgb * color.a, color.a);
+			// 	} else {
+			// 		discard;
+			// 	}
+				
+			} else {
+				
+				gl_FragColor = color;
+				
+			}
+			
+		}"
+		
+	)
+	
+	public function new (code:ByteArray = null) {
+		
+		super (code);
 		
 	}
 	

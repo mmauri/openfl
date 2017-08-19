@@ -96,7 +96,7 @@ class GLRenderer extends AbstractRenderer {
 			
 		}
 		
-		gl.clear (gl.COLOR_BUFFER_BIT);
+		gl.clear (gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 		
 	}
 	

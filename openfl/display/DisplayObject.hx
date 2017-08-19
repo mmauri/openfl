@@ -813,6 +813,23 @@ class DisplayObject extends EventDispatcher implements IBitmapDrawable #if openf
 	}
 	
 	
+	private function __renderGLMask (renderSession:RenderSession):Void {
+		
+		__updateCacheBitmap (renderSession, false);
+		
+		if (__cacheBitmap != null && !__cacheBitmapRender) {
+			
+			GLBitmap.renderMask (__cacheBitmap, renderSession);
+			
+		} else {
+			
+			GLDisplayObject.renderMask (this, renderSession);
+			
+		}
+		
+	}
+	
+	
 	private function __setParentRenderDirty ():Void {
 		
 		var renderParent = __renderParent != null ? __renderParent : parent;
