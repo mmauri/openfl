@@ -19,9 +19,10 @@ class InteractiveObject extends DisplayObject {
 	
 	public var softKeyboardInputAreaOfInterest:Rectangle;
 	public var tabEnabled (get, set):Bool;
-	public var tabIndex:Int;
+	public var tabIndex (get, set):Int;
 	
-	private var __tabEnabled:Bool;
+	private var __tabEnabled:Null<Bool>;
+	private var __tabIndex:Int;
 	
 	
 	public function new () {
@@ -31,8 +32,8 @@ class InteractiveObject extends DisplayObject {
 		doubleClickEnabled = false;
 		mouseEnabled = true;
 		needsSoftKeyboard = false;
-		__tabEnabled = false;
-		tabIndex = -1;
+		__tabEnabled = null;
+		__tabIndex = -1;
 		
 	}
 	
@@ -42,6 +43,13 @@ class InteractiveObject extends DisplayObject {
 		openfl.Lib.notImplemented ();
 		
 		return false;
+		
+	}
+	
+	
+	private function __allowMouseFocus ():Bool {
+		
+		return tabEnabled;
 		
 	}
 	
@@ -82,7 +90,7 @@ class InteractiveObject extends DisplayObject {
 	
 	private function get_tabEnabled ():Bool {
 		
-		return __tabEnabled;
+		return __tabEnabled == true ? true : false;
 		
 	}
 	
@@ -90,6 +98,20 @@ class InteractiveObject extends DisplayObject {
 	private function set_tabEnabled (value:Bool):Bool {
 		
 		return __tabEnabled = value;
+		
+	}
+	
+	
+	private function get_tabIndex ():Int {
+		
+		return __tabIndex;
+		
+	}
+	
+	
+	private function set_tabIndex (value:Int):Int {
+		
+		return __tabIndex = value;
 		
 	}
 	

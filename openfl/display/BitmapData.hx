@@ -29,9 +29,11 @@ import openfl.Lib;
 import openfl._internal.renderer.canvas.CanvasBlendModeManager;
 import openfl._internal.renderer.canvas.CanvasMaskManager;
 import openfl._internal.renderer.RenderSession;
+import openfl._internal.renderer.opengl.GLMaskManager;
 import openfl._internal.renderer.opengl.GLRenderer;
 import openfl._internal.utils.PerlinNoise;
 import openfl.display3D.textures.TextureBase;
+import openfl.errors.Error;
 import openfl.errors.IOError;
 import openfl.errors.TypeError;
 import openfl.filters.BitmapFilter;
@@ -40,6 +42,7 @@ import openfl.geom.Matrix;
 import openfl.geom.Point;
 import openfl.geom.Rectangle;
 import openfl.utils.ByteArray;
+import openfl.utils.Object;
 import openfl.Vector;
 
 #if (js && html5)
@@ -61,6 +64,7 @@ import openfl._internal.renderer.cairo.CairoMaskManager;
 @:access(lime.graphics.Image)
 @:access(lime.graphics.ImageBuffer)
 @:access(lime.math.Rectangle)
+@:access(openfl._internal.renderer.opengl.GLMaskManager)
 @:access(openfl._internal.renderer.opengl.GLRenderer)
 @:access(openfl.display3D.textures.TextureBase)
 @:access(openfl.display.DisplayObject)
@@ -84,6 +88,7 @@ class BitmapData implements IBitmapDrawable {
 	
 	private static inline var __bufferStride = 26;
 	private static var __supportsBGRA:Null<Bool> = null;
+	private static var __tempVector:Vector2 = new Vector2 ();
 	private static var __textureFormat:Int;
 	private static var __textureInternalFormat:Int;
 	
@@ -397,7 +402,14 @@ class BitmapData implements IBitmapDrawable {
 		
 		if (!readable || sourceBitmapData == null) return;
 		
-		image.copyPixels (sourceBitmapData.image, sourceRect.__toLimeRectangle (), destPoint.__toLimeVector2 (), alphaBitmapData != null ? alphaBitmapData.image : null, alphaPoint != null ? alphaPoint.__toLimeVector2 () : null, mergeAlpha);
+		if (alphaPoint != null) {
+			
+			__tempVector.x = alphaPoint.x;
+			__tempVector.y = alphaPoint.y;
+			
+		}
+		
+		image.copyPixels (sourceBitmapData.image, sourceRect.__toLimeRectangle (), destPoint.__toLimeVector2 (), alphaBitmapData != null ? alphaBitmapData.image : null, alphaPoint != null ? __tempVector : null, mergeAlpha);
 		
 	}
 	
@@ -522,6 +534,7 @@ class BitmapData implements IBitmapDrawable {
 			var buffer = image.buffer;
 			
 			var renderSession = new RenderSession ();
+			// renderSession.lockTransform = true;
 			renderSession.clearRenderDirty = false;
 			renderSession.context = cast buffer.__srcContext;
 			renderSession.allowSmoothing = smoothing;
@@ -612,6 +625,7 @@ class BitmapData implements IBitmapDrawable {
 			}
 			
 			var renderSession = new RenderSession ();
+			// renderSession.lockTransform = true;
 			renderSession.clearRenderDirty = false;
 			renderSession.cairo = cairo;
 			renderSession.allowSmoothing = smoothing;
@@ -658,7 +672,7 @@ class BitmapData implements IBitmapDrawable {
 	}
 	
 	
-	public function encode (rect:Rectangle, compressor:Dynamic, byteArray:ByteArray = null):ByteArray {
+	public function encode (rect:Rectangle, compressor:Object, byteArray:ByteArray = null):ByteArray {
 		
 		if (!readable || rect == null) return byteArray = null;
 		if (byteArray == null) byteArray = new ByteArray();
@@ -1021,7 +1035,10 @@ class BitmapData implements IBitmapDrawable {
 		
 		if (!readable) return null;
 		if (rect == null) rect = this.rect;
-		return ByteArray.fromBytes (image.getPixels (rect.__toLimeRectangle (), ARGB32));
+		var byteArray = ByteArray.fromBytes (image.getPixels (rect.__toLimeRectangle (), ARGB32));
+		// TODO: System endian order
+		byteArray.endian = BIG_ENDIAN;
+		return byteArray;
 		
 	}
 	
@@ -1230,7 +1247,7 @@ class BitmapData implements IBitmapDrawable {
 	}
 	
 	
-	public function hitTest (firstPoint:Point, firstAlphaThreshold:Int, secondObject:Dynamic, secondBitmapDataPoint:Point = null, secondAlphaThreshold:Int = 1):Bool {
+	public function hitTest (firstPoint:Point, firstAlphaThreshold:Int, secondObject:Object, secondBitmapDataPoint:Point = null, secondAlphaThreshold:Int = 1):Bool {
 		
 		if (!readable) return false;
 		
@@ -1529,7 +1546,11 @@ class BitmapData implements IBitmapDrawable {
 	public function setPixels (rect:Rectangle, byteArray:ByteArray):Void {
 		
 		if (!readable || rect == null) return;
-		image.setPixels (rect.__toLimeRectangle (), byteArray, ARGB32);
+		
+		var length = (rect.width * rect.height * 4);
+		if (byteArray.bytesAvailable < length) throw new Error ("End of file was encountered.", 2030);
+		
+		image.setPixels (rect.__toLimeRectangle (), byteArray, ARGB32, byteArray.endian);
 		
 	}
 	
@@ -1658,6 +1679,7 @@ class BitmapData implements IBitmapDrawable {
 			var buffer = image.buffer;
 			
 			var renderSession = new RenderSession ();
+			// renderSession.lockTransform = true;
 			renderSession.clearRenderDirty = true;
 			renderSession.context = cast buffer.__srcContext;
 			renderSession.allowSmoothing = smoothing;
@@ -1747,6 +1769,7 @@ class BitmapData implements IBitmapDrawable {
 			}
 			
 			var renderSession = new RenderSession ();
+			// renderSession.lockTransform = true;
 			renderSession.clearRenderDirty = true;
 			renderSession.cairo = cairo;
 			renderSession.allowSmoothing = smoothing;
@@ -2026,6 +2049,28 @@ class BitmapData implements IBitmapDrawable {
 		gl.vertexAttribPointer (shader.data.aPosition.index, 3, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 0);
 		gl.vertexAttribPointer (shader.data.aTexCoord.index, 2, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
 		gl.vertexAttribPointer (shader.data.aAlpha.index, 1, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 5 * Float32Array.BYTES_PER_ELEMENT);
+		
+		gl.drawArrays (gl.TRIANGLE_STRIP, 0, 4);
+		
+	}
+	
+	
+	private function __renderGLMask (renderSession:RenderSession):Void {
+		
+		var renderer:GLRenderer = cast renderSession.renderer;
+		var gl = renderSession.gl;
+		
+		var shader = GLMaskManager.maskShader;
+		
+		shader.data.uImage0.input = this;
+		shader.data.uImage0.smoothing = renderSession.allowSmoothing && (renderSession.upscaled);
+		shader.data.uMatrix.value = renderer.getMatrix (__worldTransform);
+		
+		renderSession.shaderManager.setShader (shader);
+		
+		gl.bindBuffer (gl.ARRAY_BUFFER, getBuffer (gl, 1, __worldColorTransform));
+		gl.vertexAttribPointer (shader.data.aPosition.index, 3, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 0);
+		gl.vertexAttribPointer (shader.data.aTexCoord.index, 2, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
 		
 		gl.drawArrays (gl.TRIANGLE_STRIP, 0, 4);
 		
